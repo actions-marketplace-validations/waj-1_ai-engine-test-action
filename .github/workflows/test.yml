@@ -1,0 +1,47 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests against a fake engine
+        run: python -m unittest discover -s tests -v
+
+  action:
+    # Runs the action itself, as a workflow would, against the fake engine.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the fake engine
+        run: |
+          python3 tests/serve_fake_engine.py 18765 &
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://127.0.0.1:18765/ && break
+            sleep 0.5
+          done
+      - id: tests
+        uses: ./
+        with:
+          engine-url: http://127.0.0.1:18765
+          api-key: wae_test_good_key
+          suite: Support basics
+          poll-interval-seconds: "1"
+      - name: Check the outputs
+        run: |
+          test "${{ steps.tests.outputs.pass-rate }}" = "100"
+          test "${{ steps.tests.outputs.run-id }}" = "run-42"

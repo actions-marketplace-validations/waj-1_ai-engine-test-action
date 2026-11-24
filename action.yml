@@ -1,0 +1,99 @@
+name: "WAJ AI Engine: run agent tests"
+description: "Run a WAJ AI Engine test suite against an agent and fail the job when the pass rate drops."
+author: "WAJ"
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  engine-url:
+    description: "Base URL of your engine, for example https://engine.example.com."
+    required: true
+  api-key:
+    description: "An engine API key with Full access (Settings > API keys). Pass it from a secret."
+    required: true
+  suite:
+    description: "The test suite to run: its id or its exact name."
+    required: true
+  agent:
+    description: "The agent to test: its slug, name or profile id. Default: the agent the suite is linked to."
+    required: false
+    default: ""
+  model:
+    description: "Run with another model: its name, model string or id in the engine. Default: the agent's own model."
+    required: false
+    default: ""
+  instructions-file:
+    description: "Path to a draft of the agent's instructions. The run tests this text; the agent keeps serving what it served before."
+    required: false
+    default: ""
+  min-pass-rate:
+    description: "Lowest pass rate, in percent, that keeps the job green."
+    required: false
+    default: "100"
+  timeout-minutes:
+    description: "How long to wait for the run to finish."
+    required: false
+    default: "30"
+  fail-on-regression:
+    description: "Also fail when a case that passed in the previous finished run of this suite and agent fails now."
+    required: false
+    default: "false"
+  environment:
+    description: "The engine's config environment that holds the agent and the suite: staging or prod."
+    required: false
+    default: "staging"
+  poll-interval-seconds:
+    description: "Seconds between status checks."
+    required: false
+    default: "5"
+
+outputs:
+  run-id:
+    description: "The id of the test run."
+    value: ${{ steps.run.outputs.run-id }}
+  run-url:
+    description: "The run's page in the engine portal."
+    value: ${{ steps.run.outputs.run-url }}
+  status:
+    description: "The engine's final status for the run (passed, failed, errored, cancelled), or timeout."
+    value: ${{ steps.run.outputs.status }}
+  pass-rate:
+    description: "Share of graded cases that passed, in percent."
+    value: ${{ steps.run.outputs.pass-rate }}
+  passed:
+    description: "Number of cases that passed."
+    value: ${{ steps.run.outputs.passed }}
+  failed:
+    description: "Number of cases that failed."
+    value: ${{ steps.run.outputs.failed }}
+  not-judged:
+    description: "Number of cases the engine could not grade. They are left out of the pass rate."
+    value: ${{ steps.run.outputs.not-judged }}
+  total:
+    description: "Number of cases in the run."
+    value: ${{ steps.run.outputs.total }}
+  regressed:
+    description: "Number of cases that passed in the previous run and fail now. Empty when there was no previous run."
+    value: ${{ steps.run.outputs.regressed }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: run
+      shell: bash
+      env:
+        INPUT_ENGINE_URL: ${{ inputs.engine-url }}
+        INPUT_API_KEY: ${{ inputs.api-key }}
+        INPUT_SUITE: ${{ inputs.suite }}
+        INPUT_AGENT: ${{ inputs.agent }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_INSTRUCTIONS_FILE: ${{ inputs.instructions-file }}
+        INPUT_MIN_PASS_RATE: ${{ inputs.min-pass-rate }}
+        INPUT_TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        INPUT_FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
+        INPUT_ENVIRONMENT: ${{ inputs.environment }}
+        INPUT_POLL_INTERVAL_SECONDS: ${{ inputs.poll-interval-seconds }}
+      run: |
+        if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
+        "$PY" "$GITHUB_ACTION_PATH/run_tests.py"
